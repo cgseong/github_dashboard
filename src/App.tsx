@@ -216,7 +216,7 @@ function App() {
   // 글로벌 관리자 로그인 핸들러
   const handleGlobalAdminLogin = (password: string) => {
     // 임시 하드코딩된 시스템 관리자 비밀번호
-    if (password === 'admin1234') {
+    if (password === 'admin7856') {
       setIsAdminLoggedIn(true);
       sessionStorage.setItem('gitcollab_admin_logged_in', 'true');
       return true;
