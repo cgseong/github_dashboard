@@ -13,53 +13,43 @@ import Contributors from './pages/Contributors';
 import CodeInsights from './pages/CodeInsights';
 import AIEvaluation from './pages/AIEvaluation';
 
-// localStorage 키 상수
-const STORAGE_KEY_COURSES = 'gitcollab_courses';
-const STORAGE_KEY_SELECTED_COURSE = 'gitcollab_selected_course_id';
+// 파일 API를 통해 수업 설정을 data/courses.json에 저장/불러오기
+// Vite 플러그인이 /api/courses 엔드포인트를 제공 (별도 서버 불필요)
 
-/** localStorage에 수업 목록 저장 (토큰 포함) */
-function saveCoursesToStorage(courses: CourseConfig[]) {
-  localStorage.setItem(STORAGE_KEY_COURSES, JSON.stringify(courses));
-}
-
-/** localStorage에서 수업 목록 복원 */
-function loadCoursesFromStorage(): CourseConfig[] {
+/** 서버 파일에서 수업 목록 불러오기 */
+async function fetchCoursesFromFile(): Promise<CourseConfig[]> {
   try {
-    const json = localStorage.getItem(STORAGE_KEY_COURSES);
-    if (!json) return migrateOldStorage(); // 기존 단일 수업 데이터 마이그레이션
-    return JSON.parse(json) as CourseConfig[];
-  } catch {
+    const res = await fetch('/api/courses');
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      return json.data as CourseConfig[];
+    }
     return [];
+  } catch {
+    console.warn('파일 API 연결 실패, localStorage에서 불러옵니다.');
+    // 폴백: localStorage에서 불러오기
+    try {
+      const stored = localStorage.getItem('gitcollab_courses');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
   }
 }
 
-/** 기존 단일 수업 저장 형식에서 다중 수업 형식으로 마이그레이션 */
-function migrateOldStorage(): CourseConfig[] {
+/** 서버 파일에 수업 목록 저장 */
+async function saveCoursesToFile(courses: CourseConfig[]) {
   try {
-    const courseJson = localStorage.getItem('gitcollab_course_config');
-    const token = localStorage.getItem('gitcollab_token');
-    if (!courseJson || !token) return [];
-
-    const old = JSON.parse(courseJson);
-    if (!old.courseName || !old.teams?.length) return [];
-
-    // 기존 데이터를 새 형식으로 변환
-    const migrated: CourseConfig = {
-      id: `course-migrated-${Date.now()}`,
-      courseName: old.courseName,
-      token,
-      teams: old.teams,
-    };
-
-    // 새 형식으로 저장하고 기존 키 제거
-    const courses = [migrated];
-    saveCoursesToStorage(courses);
-    localStorage.removeItem('gitcollab_course_config');
-    localStorage.removeItem('gitcollab_token');
-    return courses;
+    await fetch('/api/courses', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(courses),
+    });
   } catch {
-    return [];
+    console.warn('파일 API 저장 실패, localStorage에 저장합니다.');
   }
+  // localStorage에도 백업 저장
+  localStorage.setItem('gitcollab_courses', JSON.stringify(courses));
 }
 
 function App() {
@@ -90,43 +80,26 @@ function App() {
     token,
   }), []);
 
-  /** 앱 시작 시 localStorage에서 수업 목록 복원 및 마지막 선택된 수업 복원 */
+  /** 앱 시작 시 파일에서 수업 목록 불러오기 (수업 선택 화면 표시) */
   useEffect(() => {
     if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
 
-    const savedCourses = loadCoursesFromStorage();
-    setCourses(savedCourses);
+    // 파일 API로 수업 목록 조회 (실패 시 localStorage 폴백)
+    fetchCoursesFromFile().then(savedCourses => {
+      setCourses(savedCourses);
+    });
+  }, []);
 
-    if (savedCourses.length > 0) {
-      // 마지막으로 선택했던 수업 ID 복원
-      const lastSelectedId = localStorage.getItem(STORAGE_KEY_SELECTED_COURSE);
-      const courseToLoad = savedCourses.find(c => c.id === lastSelectedId) || savedCourses[0];
-
-      if (courseToLoad.teams.length > 0) {
-        initialLoadDone.current = true;
-        setSelectedCourse(courseToLoad);
-        const firstTeam = courseToLoad.teams[0];
-        setSelectedTeamId(firstTeam.id);
-        setConnected(true);
-        setLoadingTeamId(firstTeam.id);
-        localStorage.setItem(STORAGE_KEY_SELECTED_COURSE, courseToLoad.id);
-
-        github.loadData(getRepoConfig(firstTeam, courseToLoad.token), period)
-          .finally(() => setLoadingTeamId(null));
-      }
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** 수업 목록 업데이트 (CourseSelector에서 호출) */
+  /** 수업 목록 업데이트 (CourseSelector에서 호출) → 파일에 저장 */
   const handleUpdateCourses = (updatedCourses: CourseConfig[]) => {
     setCourses(updatedCourses);
-    saveCoursesToStorage(updatedCourses);
+    saveCoursesToFile(updatedCourses);
   };
 
   /** 수업 선택 (대시보드 진입) */
   const handleSelectCourse = async (course: CourseConfig) => {
     setSelectedCourse(course);
-    localStorage.setItem(STORAGE_KEY_SELECTED_COURSE, course.id);
 
     if (course.teams.length > 0) {
       const firstTeam = course.teams[0];
@@ -147,8 +120,8 @@ function App() {
     setConnected(false);
     setSelectedCourse(null);
     setSelectedTeamId('');
-    // 수업 목록을 다시 로드 (최신 상태 반영)
-    setCourses(loadCoursesFromStorage());
+    // 서버 파일에서 수업 목록을 다시 불러오기 (최신 상태 반영)
+    fetchCoursesFromFile().then(latest => setCourses(latest));
   };
 
   /** 팀 전환 핸들러 */
@@ -192,7 +165,7 @@ function App() {
     if (updatedTeams.length === 0) {
       const updatedCourses = courses.filter(c => c.id !== selectedCourse.id);
       setCourses(updatedCourses);
-      saveCoursesToStorage(updatedCourses);
+      saveCoursesToFile(updatedCourses);
       handleBackToCourses();
       return;
     }
@@ -204,7 +177,7 @@ function App() {
     // 전체 수업 목록도 업데이트
     const updatedCourses = courses.map(c => c.id === selectedCourse.id ? updatedCourse : c);
     setCourses(updatedCourses);
-    saveCoursesToStorage(updatedCourses);
+    saveCoursesToFile(updatedCourses);
 
     // 현재 선택된 팀이 삭제되었는지 확인
     const currentTeamExists = updatedTeams.find(t => t.id === selectedTeamId);

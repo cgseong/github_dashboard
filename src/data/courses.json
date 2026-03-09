@@ -1,0 +1,15 @@
+[
+  {
+    "id": "course-1773020818655",
+    "courseName": "Verifying Course",
+    "token": "ghp_verify1234567890abcdef",
+    "teams": [
+      {
+        "id": "team-1773020812184",
+        "teamName": "Team Alpha",
+        "owner": "test-owner",
+        "repo": "test-repo"
+      }
+    ]
+  }
+]
