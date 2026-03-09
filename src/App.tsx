@@ -8,6 +8,7 @@ import CourseSelector from './components/CourseSelector';
 import PeriodSelector from './components/PeriodSelector';
 import TeamSelector from './components/TeamSelector';
 import TeamManager from './components/TeamManager';
+import AdminLogin from './components/AdminLogin';
 import Dashboard from './pages/Dashboard';
 import Contributors from './pages/Contributors';
 import CodeInsights from './pages/CodeInsights';
@@ -60,6 +61,11 @@ function App() {
   // 대시보드 진입 여부
   const [connected, setConnected] = useState(false);
   const [period, setPeriod] = useState<PeriodType>('1w');
+
+  // 전체 관리자 로그인 상태
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    return sessionStorage.getItem('gitcollab_admin_logged_in') === 'true';
+  });
 
   // 현재 선택된 팀 ID
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
@@ -207,7 +213,29 @@ function App() {
   // 현재 선택된 팀 정보
   const selectedTeam = selectedCourse?.teams.find(t => t.id === selectedTeamId);
 
-  // 대시보드 미진입: 수업 선택/관리 화면
+  // 글로벌 관리자 로그인 핸들러
+  const handleGlobalAdminLogin = (password: string) => {
+    // 임시 하드코딩된 시스템 관리자 비밀번호
+    if (password === 'admin1234') {
+      setIsAdminLoggedIn(true);
+      sessionStorage.setItem('gitcollab_admin_logged_in', 'true');
+      return true;
+    }
+    return false;
+  };
+
+  // 글로벌 관리자 로그아웃 핸들러
+  const handleGlobalAdminLogout = () => {
+    setIsAdminLoggedIn(false);
+    sessionStorage.removeItem('gitcollab_admin_logged_in');
+  };
+
+  // 1. 관리자 로그인 미완료 시 로그인 화면 표시
+  if (!isAdminLoggedIn) {
+    return <AdminLogin onLogin={handleGlobalAdminLogin} />;
+  }
+
+  // 2. 대시보드 미진입: 수업 선택/관리 화면
   if (!connected) {
     return (
       <CourseSelector
@@ -235,6 +263,7 @@ function App() {
           <Layout
             onOpenTeamManager={() => setShowTeamManager(true)}
             onBackToCourses={handleBackToCourses}
+            onLogout={handleGlobalAdminLogout}
           />
         }>
           <Route

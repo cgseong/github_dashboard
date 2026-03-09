@@ -9,6 +9,7 @@ import {
     X,
     Settings,
     BookOpen,
+    LogOut,
 } from 'lucide-react';
 
 /** 사이드바 네비게이션 메뉴 항목 */
@@ -28,10 +29,12 @@ interface SidebarProps {
     onOpenTeamManager?: () => void;
     /** 수업 목록으로 돌아가기 핸들러 */
     onBackToCourses?: () => void;
+    /** 전체 시스템 로그아웃 핸들러 */
+    onLogout?: () => void;
 }
 
 /** 사이드바 컴포넌트 */
-export default function Sidebar({ isOpen, onClose, onOpenTeamManager, onBackToCourses }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, onOpenTeamManager, onBackToCourses, onLogout }: SidebarProps) {
     return (
         <>
             {/* 모바일 오버레이 배경 - 열려 있을 때만 표시 */}
@@ -126,8 +129,20 @@ export default function Sidebar({ isOpen, onClose, onOpenTeamManager, onBackToCo
                             수업 목록
                         </button>
                     )}
+                    {/* 로그아웃 버튼 */}
+                    {onLogout && (
+                        <button
+                            onClick={onLogout}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg
+                                     text-xs text-surface-200/50 hover:text-danger-400 mt-2
+                                     hover:bg-danger-500/10 transition-colors duration-200"
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                            로그아웃
+                        </button>
+                    )}
 
-                    <div className="glass-card p-3">
+                    <div className="glass-card p-3 mt-4">
                         <p className="text-xs text-surface-200/50 text-center">
                             GitHub API 기반 분석
                         </p>

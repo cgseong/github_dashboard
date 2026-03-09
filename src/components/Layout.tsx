@@ -9,10 +9,12 @@ interface LayoutProps {
     onOpenTeamManager?: () => void;
     /** 수업 목록으로 돌아가기 핸들러 */
     onBackToCourses?: () => void;
+    /** 시스템 로그아웃 핸들러 */
+    onLogout?: () => void;
 }
 
 /** 메인 레이아웃 - 사이드바와 콘텐츠 영역으로 구성 */
-export default function Layout({ onOpenTeamManager, onBackToCourses }: LayoutProps) {
+export default function Layout({ onOpenTeamManager, onBackToCourses, onLogout }: LayoutProps) {
     // 모바일 사이드바 열림/닫힘 상태
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -24,6 +26,7 @@ export default function Layout({ onOpenTeamManager, onBackToCourses }: LayoutPro
                 onClose={() => setSidebarOpen(false)}
                 onOpenTeamManager={onOpenTeamManager}
                 onBackToCourses={onBackToCourses}
+                onLogout={onLogout}
             />
 
             {/* 사이드바 너비만큼 밀어주는 래퍼 - fixed 사이드바와 겹치지 않도록 */}
