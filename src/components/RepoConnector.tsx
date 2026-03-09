@@ -54,11 +54,19 @@ export default function RepoConnector({ onConnect, loading, error }: RepoConnect
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (courseName && token && teams.length > 0) {
+<<<<<<< HEAD
             onConnect({
                 id: crypto.randomUUID(),
                 courseName,
                 token,
                 teams
+=======
+            onConnect({ 
+                id: crypto.randomUUID(), 
+                courseName, 
+                token, 
+                teams 
+>>>>>>> d6eec59457fc295b1646679cdc1477c857e0ad22
             });
         }
     };
