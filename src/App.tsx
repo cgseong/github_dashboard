@@ -61,6 +61,8 @@ function App() {
   // 대시보드 진입 여부
   const [connected, setConnected] = useState(false);
   const [period, setPeriod] = useState<PeriodType>('1w');
+  // 로드 완료 여부 상태
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // 전체 관리자 로그인 상태
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
@@ -94,6 +96,7 @@ function App() {
     // 파일 API로 수업 목록 조회 (실패 시 localStorage 폴백)
     fetchCoursesFromFile().then(savedCourses => {
       setCourses(savedCourses);
+      setIsInitializing(false);
     });
   }, []);
 
@@ -229,6 +232,13 @@ function App() {
     setIsAdminLoggedIn(false);
     sessionStorage.removeItem('gitcollab_admin_logged_in');
   };
+
+  // 0. 초기 데이터 로딩 중 화면
+  if (isInitializing) {
+    return <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>;
+  }
 
   // 1. 관리자 로그인 미완료 시 로그인 화면 표시
   if (!isAdminLoggedIn) {
