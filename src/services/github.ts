@@ -57,6 +57,51 @@ async function fetchAllPages<T>(
     return results;
 }
 
+/** 서브모듈 정보 가져오기 */
+export async function fetchSubmodules(
+    token: string, owner: string, repo: string
+): Promise<{owner: string, repo: string, path: string}[]> {
+    const octokit = createOctokit(token);
+    try {
+        const { data } = await octokit.repos.getContent({
+            owner,
+            repo,
+            path: '.gitmodules',
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fileData = data as any;
+        if (!Array.isArray(fileData) && fileData.type === 'file' && fileData.content) {
+            // Base64 디코딩 (브라우저 환경 지원, 줄바꿈 제거)
+            const textContent = decodeURIComponent(escape(window.atob(fileData.content.replace(/\n/g, ''))));
+            const lines = textContent.split('\n');
+            const submodules: {owner: string, repo: string, path: string}[] = [];
+            
+            let currentPath = '';
+            for (const line of lines) {
+                const pathMatch = line.match(/^\s*path\s*=\s*(.+?)\s*$/);
+                if (pathMatch) {
+                    currentPath = pathMatch[1];
+                }
+                
+                const urlMatch = line.match(/^\s*url\s*=\s*(?:https:\/\/github\.com\/|git@github\.com:)([^/]+)\/(.+?)(?:\.git)?\s*$/);
+                if (urlMatch && currentPath) {
+                    submodules.push({
+                        owner: urlMatch[1],
+                        repo: urlMatch[2],
+                        path: currentPath
+                    });
+                    currentPath = '';
+                }
+            }
+            return submodules;
+        }
+    } catch {
+        // .gitmodules 없거나 실패 시 무시
+    }
+    return [];
+}
+
 /** 기여자 목록 조회 */
 export async function fetchContributors(
     token: string, owner: string, repo: string
@@ -468,9 +513,9 @@ export async function fetchRepoTree(
         const items = (treeData.tree || []).map((item: any) => ({
             path: item.path as string,
             name: (item.path as string).split('/').pop() || item.path as string,
-            type: item.type as 'tree' | 'blob',
+            type: ((item.type === 'commit' || item.type === 'tree') ? 'tree' : 'blob') as 'tree' | 'blob',
             size: (item.size as number) || 0,
-            children: item.type === 'tree' ? [] : undefined,
+            children: (item.type === 'tree' || item.type === 'commit') ? [] : undefined,
         }));
 
         // 모든 노드를 맵에 등록
