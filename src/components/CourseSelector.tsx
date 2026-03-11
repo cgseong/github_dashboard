@@ -1,8 +1,8 @@
 // 수업 선택/관리 컴포넌트 - 수업 목록 표시, 추가/삭제/수정/선택
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
     Github, Key, Plus, X, Pencil, Trash2, Check, Users,
-    BookOpen, AlertTriangle, ChevronRight, Loader2,
+    BookOpen, AlertTriangle, ChevronRight, Loader2, Download, Upload
 } from 'lucide-react';
 import type { CourseConfig, TeamConfig } from '../types';
 
@@ -45,6 +45,62 @@ export default function CourseSelector({
     // 수정 폼 상태
     const [editName, setEditName] = useState('');
     const [editToken, setEditToken] = useState('');
+
+    // 파일 입력 참조
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    /** 수업 데이터 내보내기 (JSON) */
+    const handleExport = () => {
+        if (courses.length === 0) {
+            alert('내보낼 수업 데이터가 없습니다.');
+            return;
+        }
+        const date = new Date();
+        const yyyymmdd = date.getFullYear() + String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(courses, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = `gitcollab_courses_${yyyymmdd}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
+
+    /** 수업 데이터 가져오기 (JSON) */
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const content = event.target?.result as string;
+                const parsed = JSON.parse(content);
+                if (Array.isArray(parsed)) {
+                    if (window.confirm('기존 데이터를 유지하고 새로운 데이터를 추가하시겠습니까?\\n[확인]: 기존 목록에 추가\\n[취소]: 기존 목록 덮어쓰기 (기존 데이터 삭제)')) {
+                        const newCourses = [...courses];
+                        parsed.forEach(incoming => {
+                            if (!newCourses.find(c => c.id === incoming.id)) {
+                                newCourses.push(incoming);
+                            } else {
+                                newCourses.push({ ...incoming, id: `course-${Date.now()}-${Math.floor(Math.random() * 1000)}` });
+                            }
+                        });
+                        onUpdateCourses(newCourses);
+                    } else {
+                        onUpdateCourses(parsed);
+                    }
+                    alert('수업 목록을 성공적으로 불러왔습니다.');
+                } else {
+                    alert('올바른 파일 형식이 아닙니다. (배열 형태의 JSON 필요)');
+                }
+            } catch (err) {
+                alert('파일을 읽고 파싱하는 중 오류가 발생했습니다.');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
 
     /** 새 수업에 팀 추가 */
     const handleAddTeamToNew = () => {
@@ -118,6 +174,33 @@ export default function CourseSelector({
                     <p className="text-surface-200/60 text-sm">
                         팀 협업 기여도 분석 플랫폼
                     </p>
+                </div>
+
+                {/* 데이터 관리 (가져오기/내보내기) 메뉴 */}
+                <div className="flex justify-end gap-2 mb-4">
+                    <input 
+                        type="file" 
+                        accept=".json" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        onChange={handleImport} 
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/50 border border-white/5 text-xs text-surface-200/60 hover:text-white hover:bg-surface-800 hover:border-white/10 transition-all"
+                        title="JSON 파일에서 수업 및 팀 정보 가져오기"
+                    >
+                        <Upload className="w-3.5 h-3.5" />
+                        가져오기
+                    </button>
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800/50 border border-white/5 text-xs text-surface-200/60 hover:text-white hover:bg-surface-800 hover:border-white/10 transition-all"
+                        title="현재 수업 및 팀 정보를 JSON 파일로 내보내기"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        내보내기
+                    </button>
                 </div>
 
                 {/* 수업 목록 */}
